@@ -58,7 +58,7 @@ pip install -r requirements.txt
 
 ```bash
 cp .env.example .env
-# Open .env and add your ANTHROPIC_API_KEY (or OPENAI_API_KEY)
+# Open .env and add your OPENAI_API_KEY
 ```
 
 ### 3. Run
@@ -75,14 +75,14 @@ Open the URL shown in the terminal (typically `http://localhost:8501`).
 
 | Variable | Required | Default | Notes |
 |---|---|---|---|
-| `ANTHROPIC_API_KEY` | Yes (Anthropic) | — | [Get a key](https://console.anthropic.com/) |
+| `OPENAI_API_KEY` | **Yes** | — | [Get a key](https://platform.openai.com/) |
+| `OPENAI_MODEL` | No | `gpt-4o` | Any OpenAI model that supports Structured Outputs |
+| `ANTHROPIC_API_KEY` | No | — | Optional; enables switching to Claude in the UI |
 | `ANTHROPIC_MODEL` | No | `claude-sonnet-4-6` | Any Claude model ID |
-| `OPENAI_API_KEY` | Yes (OpenAI) | — | [Get a key](https://platform.openai.com/) |
-| `OPENAI_MODEL` | No | `gpt-4o` | Any OpenAI chat model |
 
-At least one provider key must be set. If both are set the UI lets you switch between them.
+`OPENAI_API_KEY` is the only required key. If an `ANTHROPIC_API_KEY` is also present the UI exposes both providers.
 
-For OpenAI support, uncomment the `openai` line in `requirements.txt` and run `pip install openai`.
+For Anthropic support, uncomment the `anthropic` line in `requirements.txt` and run `pip install anthropic`.
 
 ---
 
@@ -99,7 +99,7 @@ class SupportTicket(BaseModel):
     recommended_action: str   # first action for the support team
 ```
 
-The model is forced to call a tool whose schema matches this exactly (tool-use / function-calling). The result is validated by Pydantic before it reaches the UI.
+The OpenAI path uses `client.beta.chat.completions.parse(response_format=SupportTicket)` — the SDK enforces the schema strictly and returns an already-validated Pydantic model instance. The Anthropic path uses tool-use forcing. Both paths run through the same `ProcessingResult` wrapper so the UI handles them identically.
 
 ---
 

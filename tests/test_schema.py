@@ -126,8 +126,8 @@ def test_processing_result_success():
     result = ProcessingResult(
         success=True,
         ticket=ticket,
-        provider="anthropic",
-        model="claude-sonnet-4-6",
+        provider="openai",
+        model="gpt-4o",
     )
     assert result.success is True
     assert result.ticket is not None

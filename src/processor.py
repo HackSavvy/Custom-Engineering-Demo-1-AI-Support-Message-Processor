@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import os
 from typing import Any
 
@@ -10,11 +9,10 @@ from .schema import ProcessingResult, SupportTicket
 
 SYSTEM_PROMPT = (
     "You are a customer support classifier for a SaaS business. "
-    "Analyse the customer message and classify it using the provided tool. "
+    "Analyse the customer message and classify it into the structured fields. "
     "For ambiguous or incomplete messages, make the most reasonable inference "
     "you can and reflect any uncertainty in the recommended_action field "
-    "(e.g. 'Request more details — message is unclear'). "
-    "Always call the tool; never reply with plain text."
+    "(e.g. 'Request more details — message is unclear')."
 )
 
 _TOOL_PROPERTIES: dict[str, Any] = {
@@ -62,20 +60,6 @@ _ANTHROPIC_TOOL = {
     },
 }
 
-# OpenAI tool definition
-_OPENAI_TOOL = {
-    "type": "function",
-    "function": {
-        "name": _TOOL_NAME,
-        "description": "Classify and structure a customer support message.",
-        "parameters": {
-            "type": "object",
-            "properties": _TOOL_PROPERTIES,
-            "required": _REQUIRED,
-        },
-    },
-}
-
 
 def _validate(data: dict[str, Any], provider: str, model: str) -> ProcessingResult:
     try:
@@ -91,7 +75,7 @@ def _validate(data: dict[str, Any], provider: str, model: str) -> ProcessingResu
 
 
 class SupportProcessor:
-    def __init__(self, provider: str = "anthropic") -> None:
+    def __init__(self, provider: str = "openai") -> None:
         self.provider = provider.lower()
         self._client = self._build_client()
 
@@ -149,24 +133,30 @@ class SupportProcessor:
     def _process_openai(self, message: str) -> ProcessingResult:
         model = os.environ.get("OPENAI_MODEL", "gpt-4o")
         try:
-            response = self._client.chat.completions.create(
+            completion = self._client.beta.chat.completions.parse(
                 model=model,
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": message},
                 ],
-                tools=[_OPENAI_TOOL],
-                tool_choice={"type": "function", "function": {"name": _TOOL_NAME}},
+                response_format=SupportTicket,
             )
-            tool_calls = response.choices[0].message.tool_calls
-            if tool_calls and tool_calls[0].function.name == _TOOL_NAME:
-                data = json.loads(tool_calls[0].function.arguments)
-                return _validate(data, "openai", model)
-            return ProcessingResult(
-                success=False,
-                error="Model did not return structured output.",
-                provider="openai",
-                model=model,
-            )
+            choice = completion.choices[0]
+            if choice.finish_reason == "refusal":
+                return ProcessingResult(
+                    success=False,
+                    error=f"Model refused to classify message: {choice.message.refusal}",
+                    provider="openai",
+                    model=model,
+                )
+            ticket = choice.message.parsed
+            if ticket is None:
+                return ProcessingResult(
+                    success=False,
+                    error="Model did not return structured output.",
+                    provider="openai",
+                    model=model,
+                )
+            return ProcessingResult(success=True, ticket=ticket, provider="openai", model=model)
         except Exception as exc:
             return ProcessingResult(success=False, error=str(exc), provider="openai", model=model)

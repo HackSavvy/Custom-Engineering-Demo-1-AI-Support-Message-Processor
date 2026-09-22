@@ -40,14 +40,14 @@ st.divider()
 st.subheader("Configuration")
 
 available_providers = []
-if os.environ.get("ANTHROPIC_API_KEY"):
-    available_providers.append("anthropic")
 if os.environ.get("OPENAI_API_KEY"):
     available_providers.append("openai")
+if os.environ.get("ANTHROPIC_API_KEY"):
+    available_providers.append("anthropic")
 
 if not available_providers:
     st.error(
-        "No API key found. Add `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` to a `.env` file "
+        "No API key found. Add `OPENAI_API_KEY` to a `.env` file "
         "in the project root, then restart the app."
     )
     st.stop()
